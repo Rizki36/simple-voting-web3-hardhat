@@ -1,6 +1,6 @@
-# Sample Hardhat Project
+# Simple Voting Web3 Onchain
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+A part of the [Simple Voting Web3 project](https://github.com/Rizki36/simple-voting-web3), this Hardhat setup provides the necessary tools and configurations to develop, test, and deploy smart contracts for a decentralized voting platform.
 
 Try running some of the following tasks:
 
@@ -9,5 +9,5 @@ npx hardhat help
 npx hardhat test
 REPORT_GAS=true npx hardhat test
 npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.ts
+npx hardhat ignition deploy ./ignition/modules/SimpleVotingWeb3.ts
 ```
