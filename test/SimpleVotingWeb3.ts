@@ -225,44 +225,50 @@ describe("SimpleVotingWeb3", function () {
             const results = await simpleVotingWeb3.getProposalResults(1n);
             expect(results.options).to.deep.equal(testOptions);
             expect(results.votes[0]).to.equal(1n);
-            expect(results.votes[1]).to.equal(1n);  // Fix: Use BigInt
-            expect(results.votes[2]).to.equal(0n);  // Fix: Use BigInt
+            expect(results.votes[1]).to.equal(1n);
+            expect(results.votes[2]).to.equal(0n);
             expect(results.totalVotes).to.equal(2n);
             expect(results.status).to.equal(0n); // Active
         });
 
-        it("Should list active proposal IDs correctly", async function () {
-            // Create one more active proposal
+        it("Should return all proposal IDs", async function () {
+            // Create one more proposal
             const endTime = Math.floor(Date.now() / 1000) + oneWeekInSeconds;
             await simpleVotingWeb3.createProposal("Proposal 3", "Description 3", testOptions, endTime);
 
-            // Get active proposals (should be proposals 1 and 3, since 2 was ended)
-            const activeIds = await simpleVotingWeb3.getActiveProposalIds(0, 10);
-            expect(activeIds.length).to.equal(2);
-            expect(activeIds[0]).to.equal(1n);
-            expect(activeIds[1]).to.equal(3n);
+            const allIds = await simpleVotingWeb3.getAllProposalIds();
+            expect(allIds.length).to.equal(3);
+            expect(allIds[0]).to.equal(1n);
+            expect(allIds[1]).to.equal(2n);
+            expect(allIds[2]).to.equal(3n);
         });
 
-        it("Should handle pagination in getActiveProposalIds", async function () {
-            // Create more active proposals
+        it("Should return correct proposal status", async function () {
+            const activeStatus = await simpleVotingWeb3.getProposalStatus(1n);
+            const endedStatus = await simpleVotingWeb3.getProposalStatus(2n);
+
+            expect(activeStatus).to.equal(0n); // Active
+            expect(endedStatus).to.equal(1n); // Ended
+        });
+
+        it("Should fetch basic info for multiple proposals", async function () {
+            // Create one more proposal
             const endTime = Math.floor(Date.now() / 1000) + oneWeekInSeconds;
             await simpleVotingWeb3.createProposal("Proposal 3", "Description 3", testOptions, endTime);
-            await simpleVotingWeb3.createProposal("Proposal 4", "Description 4", testOptions, endTime);
 
-            // Get first page (limit = 1)
-            const page1 = await simpleVotingWeb3.getActiveProposalIds(0, 1);
-            expect(page1.length).to.equal(1);
-            expect(page1[0]).to.equal(1n);
+            const proposalIds = [1n, 2n, 3n];
+            const basicInfo = await simpleVotingWeb3.getProposalsBasicInfo(proposalIds);
 
-            // Get second page (limit = 1)
-            const page2 = await simpleVotingWeb3.getActiveProposalIds(1, 1);
-            expect(page2.length).to.equal(1);
-            expect(page2[0]).to.equal(3n);
+            // Check the returned arrays
+            expect(basicInfo.ids.length).to.equal(3);
+            expect(basicInfo.titles.length).to.equal(3);
+            expect(basicInfo.statuses.length).to.equal(3);
 
-            // Get third page (limit = 1)
-            const page3 = await simpleVotingWeb3.getActiveProposalIds(2, 1);
-            expect(page3.length).to.equal(1);
-            expect(page3[0]).to.equal(4n);
+            // Check specific values
+            expect(basicInfo.ids[0]).to.equal(1n);
+            expect(basicInfo.titles[0]).to.equal("Proposal 1");
+            expect(basicInfo.statuses[0]).to.equal(0n); // Active
+            expect(basicInfo.statuses[1]).to.equal(1n); // Ended
         });
     });
 

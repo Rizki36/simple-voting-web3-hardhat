@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title SimpleVotingWeb3
  * @dev A decentralized voting platform that allows proposal creation and voting
+ * Pagination, filtering and sorting is handled client-side for gas efficiency
  */
 contract SimpleVotingWeb3 is Ownable {
     uint256 private _proposalIds;
@@ -283,5 +284,72 @@ contract SimpleVotingWeb3 is Ownable {
      */
     function getProposalCount() external view returns (uint256) {
         return _proposalIds;
+    }
+
+    /**
+     * @dev Gets all proposal IDs (more gas efficient for client-side filtering)
+     */
+    function getAllProposalIds() 
+        external 
+        view 
+        returns (uint256[] memory) 
+    {
+        uint256 count = _proposalIds;
+        uint256[] memory ids = new uint256[](count);
+        
+        for (uint256 i = 0; i < count; i++) {
+            ids[i] = i + 1; // IDs start at 1
+        }
+        
+        return ids;
+    }
+
+    /**
+     * @dev Gets proposal status by ID (useful for client-side filtering)
+     * @param proposalId The ID of the proposal
+     */
+    function getProposalStatus(uint256 proposalId)
+        external
+        view
+        proposalExists(proposalId)
+        returns (ProposalStatus)
+    {
+        return proposals[proposalId].status;
+    }
+
+    /**
+     * @dev Gets basic proposal info in batches to reduce RPC calls
+     * @param proposalIds Array of proposal IDs to fetch
+     */
+    function getProposalsBasicInfo(uint256[] calldata proposalIds)
+        external
+        view
+        returns (
+            uint256[] memory ids,
+            string[] memory titles,
+            ProposalStatus[] memory statuses,
+            uint256[] memory endTimes,
+            uint256[] memory totalVotes
+        )
+    {
+        uint256 length = proposalIds.length;
+        ids = new uint256[](length);
+        titles = new string[](length);
+        statuses = new ProposalStatus[](length);
+        endTimes = new uint256[](length);
+        totalVotes = new uint256[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            if (proposalIds[i] > 0 && proposalIds[i] <= _proposalIds) {
+                Proposal storage proposal = proposals[proposalIds[i]];
+                ids[i] = proposal.id;
+                titles[i] = proposal.title;
+                statuses[i] = proposal.status;
+                endTimes[i] = proposal.endTime;
+                totalVotes[i] = proposal.totalVotes;
+            }
+        }
+        
+        return (ids, titles, statuses, endTimes, totalVotes);
     }
 }
