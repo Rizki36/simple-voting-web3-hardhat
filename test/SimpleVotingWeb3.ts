@@ -270,6 +270,117 @@ describe("SimpleVotingWeb3", function () {
             expect(basicInfo.statuses[0]).to.equal(0n); // Active
             expect(basicInfo.statuses[1]).to.equal(1n); // Ended
         });
+
+        it("Should retrieve full proposal data correctly", async function () {
+            // Vote on proposal 1
+            await simpleVotingWeb3.connect(addr1).vote(1, 0);
+            await simpleVotingWeb3.connect(addr2).vote(1, 1);
+
+            const fullProposal = await simpleVotingWeb3.getFullProposal(1n);
+
+            expect(fullProposal.id).to.equal(1n);
+            expect(fullProposal.title).to.equal("Proposal 1");
+            expect(fullProposal.description).to.equal("Description 1");
+            expect(fullProposal.options).to.deep.equal(testOptions);
+            expect(fullProposal.votes[0]).to.equal(1n);
+            expect(fullProposal.votes[1]).to.equal(1n);
+            expect(fullProposal.votes[2]).to.equal(0n);
+            expect(fullProposal.endTime).to.be.gt(0n);
+            expect(fullProposal.creator).to.equal(owner.address);
+            expect(fullProposal.status).to.equal(0n); // Active
+            expect(fullProposal.totalVotes).to.equal(2n);
+        });
+
+        it("Should provide consistent data between getProposal and getFullProposal", async function () {
+            const basicProposal = await simpleVotingWeb3.getProposal(1n);
+            const fullProposal = await simpleVotingWeb3.getFullProposal(1n);
+
+            // Check that overlapping fields match
+            expect(fullProposal.id).to.equal(basicProposal.id);
+            expect(fullProposal.title).to.equal(basicProposal.title);
+            expect(fullProposal.description).to.equal(basicProposal.description);
+            expect(fullProposal.endTime).to.equal(basicProposal.endTime);
+            expect(fullProposal.creator).to.equal(basicProposal.creator);
+            expect(fullProposal.status).to.equal(basicProposal.status);
+            expect(fullProposal.totalVotes).to.equal(basicProposal.totalVotes);
+        });
+
+        it("Should handle time-based status correctly in getFullProposal", async function () {
+            // Create a proposal with a short end time
+            const shortEndTime = (await time.latest()) + 100; // 100 seconds from now
+            await simpleVotingWeb3.createProposal("Short Proposal", "Ends soon", testOptions, shortEndTime);
+
+            // Check status before end time
+            let fullProposal = await simpleVotingWeb3.getFullProposal(3n);
+            expect(fullProposal.status).to.equal(0n); // Active
+
+            // Advance time beyond the end time
+            await time.increaseTo(shortEndTime + 1);
+
+            // Check status after end time
+            fullProposal = await simpleVotingWeb3.getFullProposal(3n);
+            expect(fullProposal.status).to.equal(1n); // Should show as Ended even though contract state hasn't changed
+        });
+    });
+
+    describe("Proposal Pagination and Batching", function () {
+        beforeEach(async function () {
+            // Create multiple test proposals
+            const endTime = Math.floor(Date.now() / 1000) + oneWeekInSeconds;
+            for (let i = 0; i < 5; i++) {
+                await simpleVotingWeb3.createProposal(
+                    `Proposal ${i + 1}`,
+                    `Description ${i + 1}`,
+                    testOptions,
+                    endTime
+                );
+            }
+
+            // End some proposals
+            await simpleVotingWeb3.endProposal(2);
+            await simpleVotingWeb3.endProposal(4);
+        });
+
+        it("Should return correct active proposal IDs", async function () {
+            const activeIds = await simpleVotingWeb3.getActiveProposalIds();
+
+            // Proposals 1, 3, 5 should be active
+            expect(activeIds.length).to.equal(3);
+            expect(activeIds).to.include.members([1n, 3n, 5n]);
+            expect(activeIds).to.not.include.members([2n, 4n]);
+        });
+
+        it("Should batch retrieve basic proposal info correctly", async function () {
+            const proposalIds = [1n, 2n, 3n, 999n]; // Include invalid ID
+            const basicInfo = await simpleVotingWeb3.getProposalsBasicInfo(proposalIds);
+
+            // Only valid IDs should be returned
+            expect(basicInfo.ids.length).to.equal(3);
+            expect(basicInfo.titles.length).to.equal(3);
+            expect(basicInfo.statuses.length).to.equal(3);
+            expect(basicInfo.endTimes.length).to.equal(3);
+            expect(basicInfo.totalVotes.length).to.equal(3);
+
+            // Check first proposal data
+            expect(basicInfo.ids[0]).to.equal(1n);
+            expect(basicInfo.titles[0]).to.equal("Proposal 1");
+            expect(basicInfo.statuses[0]).to.equal(0n); // Active
+
+            // Check second proposal data
+            expect(basicInfo.ids[1]).to.equal(2n);
+            expect(basicInfo.statuses[1]).to.equal(1n); // Ended
+        });
+
+        it("Should handle empty array for batch retrieval", async function () {
+            const emptyIds: any[] = [];
+            const basicInfo = await simpleVotingWeb3.getProposalsBasicInfo(emptyIds);
+
+            expect(basicInfo.ids.length).to.equal(0);
+            expect(basicInfo.titles.length).to.equal(0);
+            expect(basicInfo.statuses.length).to.equal(0);
+            expect(basicInfo.endTimes.length).to.equal(0);
+            expect(basicInfo.totalVotes.length).to.equal(0);
+        });
     });
 
     describe("Edge Cases", function () {
