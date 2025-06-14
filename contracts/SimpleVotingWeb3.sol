@@ -24,6 +24,7 @@ contract SimpleVotingWeb3 is Ownable {
         uint256[] votes;
         uint256 totalVotes;
         uint256 endTime;
+        uint256 createdAt;
         address creator;
         ProposalStatus status;
     }
@@ -42,7 +43,8 @@ contract SimpleVotingWeb3 is Ownable {
         uint256 indexed proposalId,
         string title,
         address creator,
-        uint256 endTime
+        uint256 endTime,
+        uint256 createdAt
     );
     event Voted(
         uint256 indexed proposalId,
@@ -112,11 +114,18 @@ contract SimpleVotingWeb3 is Ownable {
             votes: initialVotes,
             totalVotes: 0,
             endTime: endTime,
+            createdAt: block.timestamp,
             creator: msg.sender,
             status: ProposalStatus.Active
         });
 
-        emit ProposalCreated(newProposalId, title, msg.sender, endTime);
+        emit ProposalCreated(
+            newProposalId,
+            title,
+            msg.sender,
+            endTime,
+            block.timestamp
+        );
         return newProposalId;
     }
 
@@ -197,94 +206,6 @@ contract SimpleVotingWeb3 is Ownable {
     }
 
     /**
-     * @dev Gets the results of a proposal
-     * @param proposalId The ID of the proposal
-     * @return options The array of option names
-     * @return votes The array of vote counts per option
-     * @return totalVotes The total number of votes cast
-     * @return status The status of the proposal
-     */
-    function getProposalResults(
-        uint256 proposalId
-    )
-        external
-        view
-        proposalExists(proposalId)
-        returns (
-            string[] memory options,
-            uint256[] memory votes,
-            uint256 totalVotes,
-            ProposalStatus status
-        )
-    {
-        Proposal storage proposal = proposals[proposalId];
-        return (
-            proposal.options,
-            proposal.votes,
-            proposal.totalVotes,
-            proposal.status
-        );
-    }
-
-    /**
-     * @dev Gets details about a proposal
-     * @param proposalId The ID of the proposal
-     */
-    function getProposal(
-        uint256 proposalId
-    )
-        external
-        view
-        proposalExists(proposalId)
-        returns (
-            uint256 id,
-            string memory title,
-            string memory description,
-            uint256 endTime,
-            address creator,
-            ProposalStatus status,
-            uint256 totalVotes
-        )
-    {
-        Proposal storage proposal = proposals[proposalId];
-
-        return (
-            proposal.id,
-            proposal.title,
-            proposal.description,
-            proposal.endTime,
-            proposal.creator,
-            proposal.status,
-            proposal.totalVotes
-        );
-    }
-
-    /**
-     * @dev Gets active proposals with pagination
-     */
-    function getActiveProposalIds() external view returns (uint256[] memory) {
-        uint256 totalProposals = _proposalIds;
-        uint256[] memory activeIds = new uint256[](totalProposals); // Max possible size
-        uint256 activeCount = 0;
-
-        // Collect all active proposal IDs
-        for (uint256 i = 1; i <= totalProposals; i++) {
-            if (proposals[i].status == ProposalStatus.Active) {
-                activeIds[activeCount] = i;
-                activeCount++;
-            }
-        }
-
-        // Create correctly sized result array
-        uint256[] memory result = new uint256[](activeCount);
-        for (uint256 i = 0; i < activeCount; i++) {
-            result[i] = activeIds[i];
-        }
-
-        return result;
-    }
-
-    /**
      * @dev Gets voter information for a proposal
      * @param proposalId The ID of the proposal
      * @param voter The address to check
@@ -324,65 +245,6 @@ contract SimpleVotingWeb3 is Ownable {
     }
 
     /**
-     * @dev Gets proposal status by ID (useful for client-side filtering)
-     * @param proposalId The ID of the proposal
-     */
-    function getProposalStatus(
-        uint256 proposalId
-    ) external view proposalExists(proposalId) returns (ProposalStatus) {
-        return proposals[proposalId].status;
-    }
-
-    /**
-     * @dev Gets basic proposal info in batches to reduce RPC calls
-     * @param proposalIds Array of proposal IDs to fetch
-     */
-    function getProposalsBasicInfo(
-        uint256[] calldata proposalIds
-    )
-        external
-        view
-        returns (
-            uint256[] memory ids,
-            string[] memory titles,
-            ProposalStatus[] memory statuses,
-            uint256[] memory endTimes,
-            uint256[] memory totalVotes
-        )
-    {
-        // Only create arrays for valid proposal IDs
-        uint256 validCount = 0;
-        for (uint256 i = 0; i < proposalIds.length; i++) {
-            if (proposalIds[i] > 0 && proposalIds[i] <= _proposalIds) {
-                validCount++;
-            }
-        }
-
-        // Initialize arrays with correct size
-        ids = new uint256[](validCount);
-        titles = new string[](validCount);
-        statuses = new ProposalStatus[](validCount);
-        endTimes = new uint256[](validCount);
-        totalVotes = new uint256[](validCount);
-
-        // Fill arrays with valid proposals only
-        uint256 index = 0;
-        for (uint256 i = 0; i < proposalIds.length; i++) {
-            if (proposalIds[i] > 0 && proposalIds[i] <= _proposalIds) {
-                Proposal storage proposal = proposals[proposalIds[i]];
-                ids[index] = proposal.id;
-                titles[index] = proposal.title;
-                statuses[index] = proposal.status;
-                endTimes[index] = proposal.endTime;
-                totalVotes[index] = proposal.totalVotes;
-                index++;
-            }
-        }
-
-        return (ids, titles, statuses, endTimes, totalVotes);
-    }
-
-    /**
      * @dev Gets full proposal details including options and votes
      * @param proposalId The ID of the proposal
      */
@@ -399,6 +261,7 @@ contract SimpleVotingWeb3 is Ownable {
             string[] memory options,
             uint256[] memory votes,
             uint256 endTime,
+            uint256 createdAt,
             address creator,
             ProposalStatus status,
             uint256 totalVotes
@@ -422,6 +285,7 @@ contract SimpleVotingWeb3 is Ownable {
             proposal.options,
             proposal.votes,
             proposal.endTime,
+            proposal.createdAt,
             proposal.creator,
             currentStatus,
             proposal.totalVotes
